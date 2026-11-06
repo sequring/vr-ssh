@@ -44,6 +44,7 @@ adb push ~/.ssh/id_ed25519 /sdcard/Android/data/io.github.sequring.vrssh/files/s
 - Private keys are stored in the app's private storage on the headset, **unencrypted** unless the key itself has a passphrase. Prefer a dedicated key for the headset over copying your main one.
 - Host keys are trusted on first use and pinned afterwards; a changed host key aborts the connection.
 - Passwords are kept in memory only for the open tab (to reconnect) and are never written to disk.
+- The app collects no data and talks only to the servers you connect to — see the [Privacy Policy](PRIVACY.md).
 
 ## Build
 
