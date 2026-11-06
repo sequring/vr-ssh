@@ -1,0 +1,152 @@
+<!doctype html>
+<!--
+  Store art template. Rendered by render.sh with headless Chrome:
+  cover.html?w=2560&h=1440            cover with title
+  cover.html?w=512&h=512&icon=1       icon (no title, per store rules)
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #11111b; }
+  body { position: relative; font-family: -apple-system, "SF Pro Display", system-ui, sans-serif; }
+
+  /* Deep space background with soft glows in the app's palette */
+  .bg { position: absolute; inset: 0;
+    background:
+      radial-gradient(60% 70% at 50% 58%, #89b4fa30, transparent 70%),
+      radial-gradient(45% 55% at 18% 25%, #cba6f72a, transparent 70%),
+      radial-gradient(40% 50% at 85% 80%, #94e2d51f, transparent 70%),
+      linear-gradient(180deg, #181825 0%, #11111b 100%); }
+
+  /* Perspective grid floor */
+  .floor { position: absolute; left: -50%; right: -50%; bottom: -10%; height: 70%;
+    transform-origin: 50% 0; transform: perspective(var(--p)) rotateX(72deg);
+    background-image:
+      linear-gradient(#89b4fa38 2px, transparent 2px),
+      linear-gradient(90deg, #89b4fa38 2px, transparent 2px);
+    background-size: calc(var(--u) * 6) calc(var(--u) * 6);
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 35%, #000 100%);
+    mask-image: linear-gradient(180deg, transparent 0%, #000 35%, #000 100%); opacity: .8; }
+
+  /* Floating terminal panels arranged in an arc around the viewer */
+  .scene { position: absolute; inset: 0; perspective: var(--p); transform-style: preserve-3d; }
+  .panel { position: absolute; left: 50%; top: 50%;
+    width: calc(var(--u) * 34); height: calc(var(--u) * 22);
+    margin: calc(var(--u) * -11) 0 0 calc(var(--u) * -17);
+    border-radius: calc(var(--u) * 1.4);
+    background: linear-gradient(160deg, #1e1e2ef2, #181825f2);
+    border: calc(var(--u) * .18) solid #89b4fa66;
+    box-shadow: 0 0 calc(var(--u) * 4) #89b4fa40, inset 0 0 calc(var(--u) * 2) #89b4fa14;
+    padding: calc(var(--u) * 1.6) calc(var(--u) * 1.8); overflow: hidden; }
+  .panel .bar { display: flex; gap: calc(var(--u) * .8); margin-bottom: calc(var(--u) * 1.6); }
+  .panel .bar i { width: calc(var(--u) * 1); height: calc(var(--u) * 1); border-radius: 50%; display: block; }
+  .panel .bar i:nth-child(1) { background: #f38ba8; }
+  .panel .bar i:nth-child(2) { background: #f9e2af; }
+  .panel .bar i:nth-child(3) { background: #a6e3a1; }
+  .panel .line { height: calc(var(--u) * .9); border-radius: calc(var(--u) * .45);
+    margin-bottom: calc(var(--u) * 1.05); display: flex; gap: calc(var(--u) * .9); }
+  .panel .line b { display: block; height: 100%; border-radius: inherit; }
+  .panel .cursor { width: calc(var(--u) * 1.1); height: calc(var(--u) * 1.7); background: #f5e0dc;
+    box-shadow: 0 0 calc(var(--u) * 1.2) #f5e0dc; margin-top: calc(var(--u) * .4); }
+
+  /* Title block */
+  .title { position: absolute; left: 50%; top: var(--ty); transform: translate(-50%, -50%);
+    display: flex; align-items: center; gap: calc(var(--t) * .38); white-space: nowrap; z-index: 5; }
+  .mark { width: calc(var(--t) * 1.25); height: calc(var(--t) * 1.25); border-radius: calc(var(--t) * .3);
+    background: linear-gradient(135deg, #89b4fa, #cba6f7);
+    display: grid; place-items: center; flex: none;
+    box-shadow: 0 0 calc(var(--t) * .6) #89b4fa80, 0 calc(var(--t) * .1) calc(var(--t) * .3) #0008; }
+  .mark svg { width: 70%; height: 70%; }
+  .name { font-weight: 800; font-size: var(--t); letter-spacing: -.02em; line-height: 1; color: #fff;
+    text-shadow: 0 0 calc(var(--t) * .35) #89b4fa99, 0 calc(var(--t) * .05) calc(var(--t) * .15) #000c; }
+  .vignette { position: absolute; inset: 0; z-index: 4;
+    background: radial-gradient(70% 70% at 50% var(--ty), transparent 40%, #11111bb3 100%); }
+
+  /* Icon: full-bleed gradient tile, square corners, no transparency, no title */
+  body.icon { background: linear-gradient(135deg, #89b4fa, #cba6f7); }
+  body.icon > :not(.iconmark) { display: none; }
+  .iconmark { display: none; }
+  body.icon .iconmark { display: grid; position: absolute; inset: 0; place-items: center; }
+  body.icon .iconmark svg { width: 62%; height: 62%; }
+</style>
+</head>
+<body>
+  <div class="bg"></div>
+  <div class="floor"></div>
+  <div class="scene" id="scene"></div>
+  <div class="vignette"></div>
+  <div class="title">
+    <div class="mark"><svg viewBox="0 0 108 108"><path d="M30,32 L50,52 L30,72" fill="none" stroke="#11111b" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><path d="M58,73 L80,73" stroke="#11111b" stroke-width="9" stroke-linecap="round"/></svg></div>
+    <div class="name">VR SSH</div>
+  </div>
+  <div class="iconmark"><svg viewBox="0 0 108 108"><path d="M30,32 L50,52 L30,72" fill="none" stroke="#11111b" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><path d="M58,73 L80,73" stroke="#11111b" stroke-width="9" stroke-linecap="round"/></svg></div>
+
+<script>
+const q = new URLSearchParams(location.search);
+const W = +q.get('w') || 2560, H = +q.get('h') || 1440;
+if (q.get('icon')) document.body.classList.add('icon');
+
+const aspect = W / H;
+const root = document.documentElement.style;
+// Base unit scales with the shorter side; very wide banners get a slightly bigger scene.
+const u = Math.min(W, H) / (aspect > 2.5 ? 34 : 60);
+root.setProperty('--u', u + 'px');
+root.setProperty('--p', (Math.max(W, H) * 1.1) + 'px');
+// Title size: prominent, but keeps clear of the edges (safe area) on every aspect.
+const t = Math.min(H * (aspect > 2.5 ? 0.30 : 0.16), W * (aspect < 1 ? 0.15 : 0.12));
+root.setProperty('--t', t + 'px');
+root.setProperty('--ty', (aspect < 1 ? 64 : aspect > 2.5 ? 50 : 58) + '%');
+
+// Terminal "content": abstract colored bars instead of text, so nothing competes with the title.
+const colors = ['#a6e3a1', '#89b4fa', '#cba6f7', '#f9e2af', '#94e2d5', '#cdd6f4', '#fab387', '#585b70'];
+let seed = 7;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+function panel() {
+  const p = document.createElement('div');
+  p.className = 'panel';
+  p.innerHTML = '<div class="bar"><i></i><i></i><i></i></div>';
+  for (let i = 0; i < 11; i++) {
+    const line = document.createElement('div');
+    line.className = 'line';
+    let left = 100;
+    const parts = 1 + Math.floor(rnd() * 3);
+    for (let j = 0; j < parts && left > 12; j++) {
+      const w = 8 + rnd() * Math.min(left - 6, 40);
+      left -= w + 3;
+      const b = document.createElement('b');
+      b.style.width = w + '%';
+      b.style.background = colors[Math.floor(rnd() * colors.length)];
+      b.style.opacity = .55 + rnd() * .4;
+      line.append(b);
+    }
+    p.append(line);
+  }
+  const c = document.createElement('div');
+  c.className = 'cursor';
+  p.append(c);
+  return p;
+}
+
+// Arc of panels around the viewer: [x offset in u, y offset in u, z depth in u, rotateY deg, scale]
+// Each aspect gets its own arrangement so every panel stays fully inside the frame.
+const layout = aspect > 2.5 ? [            // hero 10:3, mini 3:1 (half height = 17u)
+  [-98, 0, -70, 34, .6], [-60, -1, -20, 18, .64], [60, -1, -20, -18, .64], [98, 0, -70, -34, .6],
+] : aspect > 1.4 ? [                       // landscape 16:9
+  [-64, -14, -30, 32, 1], [0, -22, -60, 0, 1.05], [64, -14, -30, -32, 1],
+  [-112, -4, -90, 48, .9], [112, -4, -90, -48, .9],
+] : aspect >= 1 ? [                        // square (half width = 30u)
+  [-30, -16, -40, 30, .72], [0, -24, -70, 0, .9], [30, -16, -40, -30, .72],
+] : [                                      // portrait 7:10 (half width = 30u)
+  [0, -32, -50, 0, .95], [-30, -10, -20, 28, .8], [30, -10, -20, -28, .8],
+];
+const scene = document.getElementById('scene');
+for (const [x, y, z, ry, s] of layout) {
+  const p = panel();
+  p.style.transform = `translate3d(${x * u}px, ${y * u}px, ${z * u}px) rotateY(${ry}deg) scale(${s})`;
+  scene.append(p);
+}
+</script>
+</body>
+</html>

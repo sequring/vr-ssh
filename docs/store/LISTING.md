@@ -70,9 +70,24 @@ First release: SSH terminal with tabs, auto-reconnect and tmux resume, SSH key g
 ssh, terminal, shell, console, linux, server, devops, sysadmin, tmux, vim, command line, cli, remote, productivity, developer
 ```
 
+## Store art
+
+Ready in `docs/store/art/` (24-bit PNG, exact sizes required by the store):
+
+| Dashboard field | File | Size |
+|---|---|---|
+| Hero Cover | `hero-cover.png` | 3000×900 |
+| Cover Landscape | `cover-landscape.png` | 2560×1440 |
+| Cover Square | `cover-square.png` | 1440×1440 |
+| Cover Portrait | `cover-portrait.png` | 1008×1440 |
+| Mini Landscape | `mini-landscape.png` | 1080×360 |
+| Icon | `icon.png` | 512×512 |
+
+All covers carry the exact app title and nothing else, as the guidelines require. To change the design or the title, edit `cover.html` and run `docs/store/art/render.sh` (needs Chrome and Python with Pillow).
+
 ## Screenshots
 
-Use the images in `docs/screenshots/` (`hosts.png`, `terminal.png`, `keys.png`, 1750×1100). The dashboard also asks for cover art in several fixed sizes. Those still need to be made.
+The store needs **at least 5** unique screenshots at **2560×1440** of real in-app content, without titles or marketing text. The images in `docs/screenshots/` (1750×1100) are for the README and do not meet this; they have to be captured from the headset at 16:9.
 
 ---
 
