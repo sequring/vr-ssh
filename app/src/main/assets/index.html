@@ -1,0 +1,979 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VR SSH</title>
+<link rel="stylesheet" href="xterm.css">
+<style>
+  /* Dark: Catppuccin Mocha. Light: Catppuccin Latte. */
+  :root {
+    --bg: #1e1e2e; --panel: #282838; --text: #cdd6f4; --muted: #a6adc8;
+    --accent: #89b4fa; --err: #f38ba8; --ok: #a6e3a1; --warn: #f9e2af; --border: #45475a;
+    --on-accent: #11111b; --tabbar: #181825; --placeholder: #6c7086; --chip: #45475a80;
+    --accent-soft: #89b4fa1a; --ring: #89b4fa33; --err-soft: #f38ba81f; --ok-soft: #a6e3a126;
+    --glow-a: #89b4fa1f; --glow-b: #cba6f71a; --glow-c: #a6e3a114;
+    --shadow: #0000004d; --seg-shadow: #0006; --overlay: #11111bcc;
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --bg: #eff1f5; --panel: #ffffff; --text: #4c4f69; --muted: #6c6f85;
+    --accent: #1e66f5; --err: #d20f39; --ok: #40a02b; --warn: #df8e1d; --border: #ccd0da;
+    --on-accent: #ffffff; --tabbar: #dce0e8; --placeholder: #8c8fa1; --chip: #e6e9ef;
+    --accent-soft: #1e66f514; --ring: #1e66f533; --err-soft: #d20f3914; --ok-soft: #40a02b1f;
+    --glow-a: #1e66f514; --glow-b: #8839ef0f; --glow-c: #40a02b0f;
+    --shadow: #4c4f6926; --seg-shadow: #4c4f6933; --overlay: #4c4f6966;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font: 18px system-ui, sans-serif; overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+  button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 18px; cursor: pointer; }
+  button:active { background: var(--border); }
+  button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); font-weight: 600; }
+
+  /* Tabs */
+  #tabs { display: flex; gap: 4px; padding: 6px 6px 0; background: var(--tabbar); overflow-x: auto; flex: none; }
+  .tab { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; border-radius: 10px 10px 0 0;
+    background: var(--panel); color: var(--muted); cursor: pointer; white-space: nowrap; max-width: 260px;
+    font: 16px ui-monospace, monospace; border: 1px solid transparent; border-bottom: none; }
+  .tab.active { background: var(--bg); color: var(--text); border-color: var(--border); }
+  .tab .name { overflow: hidden; text-overflow: ellipsis; }
+  .tab .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: var(--muted); }
+  .tab .dot.connected { background: var(--ok); }
+  .tab .dot.connecting, .tab .dot.reconnecting { background: var(--warn); animation: pulse 1s infinite alternate; }
+  .tab .dot.exited { background: var(--muted); }
+  @keyframes pulse { to { opacity: .3; } }
+  .tab .x { border: none; background: none; padding: 2px 8px; font-size: 16px; color: var(--muted); border-radius: 6px; }
+  .tab .x:active { background: var(--border); }
+  #newTab { padding: 6px 16px; font-size: 16px; border-radius: 10px 10px 0 0; border-bottom: none; flex: none; }
+  #newTab.active { background: var(--bg); }
+  #keysTab { margin-left: auto; padding: 6px 16px; border-radius: 10px 10px 0 0; border-bottom: none; flex: none; font-size: 16px; }
+  #keysTab.active { background: var(--bg); }
+  #themeBtn { padding: 6px 14px; border-radius: 10px 10px 0 0; border-bottom: none; flex: none; font-size: 16px; }
+
+  /* Home (start screen) */
+  #login { flex: 1; min-height: 0; overflow: auto; display: flex;
+    background: radial-gradient(1200px 600px at 15% -10%, var(--glow-a), transparent 60%),
+                radial-gradient(900px 500px at 110% 110%, var(--glow-b), transparent 60%), var(--bg); }
+  .home { margin: auto; width: 100%; max-width: 1240px; padding: 36px 48px; display: flex; flex-direction: column; gap: 32px; }
+  .hero { display: flex; align-items: center; gap: 18px; }
+  .logo { width: 64px; height: 64px; border-radius: 18px; display: grid; place-items: center; flex: none;
+    font: 700 26px ui-monospace, monospace; color: #11111b; background: linear-gradient(135deg, #89b4fa, #cba6f7);
+    box-shadow: 0 8px 24px var(--ring); }
+  .hero h1 { margin: 0; font-size: 32px; letter-spacing: -.5px; }
+  .hero p { margin: 4px 0 0; color: var(--muted); }
+  .cols { display: grid; grid-template-columns: 1fr 420px; gap: 32px; align-items: start; }
+  .section-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
+  h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+  #hostCount { color: var(--border); font-size: 15px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .host { position: relative; display: flex; align-items: center; gap: 14px; padding: 16px; cursor: pointer;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 16px; transition: border-color .15s, transform .15s; }
+  .host:hover { border-color: var(--accent); }
+  .host:active { transform: scale(.98); }
+  .avatar { width: 48px; height: 48px; border-radius: 14px; flex: none; display: grid; place-items: center;
+    font: 700 22px system-ui, sans-serif; color: #11111b; text-transform: uppercase; }
+  .host .info { min-width: 0; flex: 1; }
+  .host .name { font: 600 19px ui-monospace, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .host .meta { margin-top: 4px; color: var(--muted); font-size: 14px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .badge { padding: 1px 8px; border-radius: 999px; background: var(--chip); font-size: 13px; }
+  .badge.live { background: var(--ok-soft); color: var(--ok); }
+  .host .actions { display: flex; flex-direction: column; gap: 4px; }
+  .host .actions button { padding: 4px 10px; font-size: 14px; background: none; border-color: transparent; color: var(--muted); }
+  .host .actions button:hover { border-color: var(--border); color: var(--text); }
+  .empty-hosts { padding: 40px 24px; text-align: center; color: var(--muted); border: 1px dashed var(--border); border-radius: 16px; }
+  .empty-hosts b { display: block; color: var(--text); font-size: 20px; margin-bottom: 6px; }
+
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 20px; padding: 24px;
+    display: flex; flex-direction: column; gap: 14px; box-shadow: 0 20px 40px var(--shadow); }
+  .card form { display: flex; flex-direction: column; gap: 14px; }
+  input:not([type=checkbox]) { width: 100%; font: 20px ui-monospace, monospace; color: var(--text);
+    background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  input::placeholder, textarea::placeholder { color: var(--placeholder); }
+  select { width: 100%; font: 18px system-ui, sans-serif; color: var(--text); background: var(--bg);
+    border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+  .switch { display: flex; align-items: center; gap: 14px; cursor: pointer; user-select: none; }
+  .switch input { display: none; }
+  .switch .track { width: 48px; height: 28px; border-radius: 999px; background: var(--border); position: relative; flex: none; transition: background .15s; }
+  .switch .track::after { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%;
+    background: var(--text); transition: transform .15s; }
+  .switch input:checked + .track { background: var(--accent); }
+  .switch input:checked + .track::after { transform: translateX(20px); background: var(--on-accent); }
+  .switch small { display: block; color: var(--muted); font-size: 14px; }
+  .card .primary { padding: 14px; font-size: 19px; border-radius: 12px; }
+  #msg:empty { display: none; }
+  #msg { padding: 12px 14px; border-radius: 12px; font-size: 15px; background: var(--accent-soft); }
+  #msg.error { background: var(--err-soft); color: var(--err); }
+  #keys { color: var(--muted); font-size: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #keys code { font: 13px ui-monospace, monospace; padding: 2px 8px; border-radius: 6px; background: var(--panel); color: var(--text); }
+  .empty { color: var(--muted); }
+
+  /* Keys page */
+  #keysView { flex: 1; min-height: 0; overflow: auto; display: none;
+    background: radial-gradient(1200px 600px at 15% -10%, var(--glow-c), transparent 60%), var(--bg); }
+  #keysView .home { margin: 0 auto; }
+  #keyList { display: flex; flex-direction: column; gap: 14px; }
+  .key { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 16px 18px;
+    display: flex; flex-direction: column; gap: 10px; }
+  .key.fresh { border-color: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+  .key .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .key .kname { font: 600 19px ui-monospace, monospace; }
+  .key .fp { font: 14px ui-monospace, monospace; color: var(--muted); word-break: break-all; }
+  .key .err { color: var(--err); font-size: 14px; }
+  .key .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .key .acts button { padding: 8px 14px; font-size: 15px; }
+  .key .acts button.danger { margin-left: auto; color: var(--err); background: none; }
+  .key .acts button.danger.armed { background: var(--err); color: var(--on-accent); border-color: var(--err); }
+  .seg { display: flex; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 4px; gap: 4px; }
+  .seg button { flex: 1; border: none; background: none; padding: 10px; border-radius: 9px; color: var(--muted); }
+  .seg button.on { background: var(--panel); color: var(--text); box-shadow: 0 1px 4px var(--seg-shadow); }
+  .card form[hidden] { display: none; }
+  .card label.field { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 14px; }
+  textarea { width: 100%; min-height: 170px; resize: vertical; font: 13px ui-monospace, monospace; color: var(--text);
+    background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+  textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); }
+  .radios { display: flex; gap: 8px; }
+  .radios label { flex: 1; display: flex; align-items: center; gap: 8px; padding: 12px; border-radius: 12px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 16px; }
+  .radios label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+  .radios input { accent-color: var(--accent); width: 18px; height: 18px; margin: 0; }
+  .radios small { color: var(--muted); }
+  #keyMsg:empty { display: none; }
+  #keyMsg { padding: 12px 14px; border-radius: 12px; font-size: 15px; background: var(--ok-soft); color: var(--ok); }
+  #keyMsg.error { background: var(--err-soft); color: var(--err); }
+  .link { background: none; border: none; padding: 0; color: var(--accent); font-size: 14px; }
+  .back { align-self: flex-start; font-size: 16px; margin-bottom: -16px; }
+  .note { color: var(--muted); font-size: 14px; line-height: 1.5; }
+
+  /* Terminal */
+  #termView { flex: 1; min-height: 0; display: none; flex-direction: column; }
+  #bar { display: flex; gap: 6px; padding: 6px; background: var(--panel); border-bottom: 1px solid var(--border);
+    flex-wrap: wrap; flex: none; }
+  #bar button { padding: 6px 12px; min-width: 48px; font-size: 16px; }
+  #bar button.on { background: var(--accent); color: var(--on-accent); }
+  #bar .spacer { flex: 1; }
+  #size { align-self: center; padding: 0 8px; color: var(--muted); font: 15px ui-monospace, monospace; }
+  #terms { flex: 1; min-height: 0; position: relative; }
+  /* Spacing via inset, not padding: FitAddon reads the parent's height including padding. */
+  .term { position: absolute; inset: 6px; display: none; }
+  .term.active { display: block; }
+
+  /* Toast */
+  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 10px 18px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px; opacity: 0;
+    transition: opacity .2s; pointer-events: none; z-index: 20; }
+  #toast.show { opacity: 1; }
+
+  /* History */
+  #history { position: fixed; inset: 0; background: var(--overlay); display: none; z-index: 10;
+    align-items: flex-start; justify-content: center; padding-top: 60px; }
+  #history.open { display: flex; }
+  #history .box { width: min(900px, 90%); max-height: 80%; display: flex; flex-direction: column;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 14px; padding: 16px; gap: 12px; }
+  #history .head { display: flex; gap: 8px; }
+  #history input { flex: 1; margin: 0; }
+  #histList { list-style: none; margin: 0; padding: 0; overflow: auto; }
+  #histList li { display: flex; gap: 6px; margin-bottom: 6px; }
+  #histList li button:first-child { flex: 1; text-align: left; font: 16px ui-monospace, monospace;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<div id="tabs"><button id="newTab" title="Hosts & new connection (Ctrl+Shift+T)">⌂ Hosts</button><button id="keysTab" title="SSH keys">🔑 Keys</button><button id="themeBtn" title="Light / dark theme"></button></div>
+
+<div id="login">
+  <div class="home">
+    <header class="hero">
+      <div class="logo">&gt;_</div>
+      <div>
+        <h1>VR SSH</h1>
+        <p>Your servers, in your space.</p>
+      </div>
+    </header>
+
+    <div class="cols">
+      <section>
+        <div class="section-head"><h2>Saved hosts</h2><span id="hostCount"></span></div>
+        <div id="saved" class="grid"></div>
+      </section>
+
+      <section class="card">
+        <h2>New connection</h2>
+        <form id="form">
+          <input id="address" placeholder="user@host:port" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+          <input id="password" type="password" placeholder="Password (optional)">
+          <select id="keySel" title="Which SSH key to use"></select>
+          <label class="switch">
+            <input id="tmux" type="checkbox" checked><span class="track"></span>
+            <span>Keep session with tmux<small>Reconnect returns to the same session</small></span>
+          </label>
+          <div id="msg"></div>
+          <button class="primary" type="submit">Connect</button>
+        </form>
+      </section>
+    </div>
+
+    <footer id="keys"></footer>
+  </div>
+</div>
+
+<div id="keysView">
+  <div class="home">
+    <button class="link back" id="keysBack">← Back to hosts</button>
+    <header class="hero">
+      <div class="logo">🔑</div>
+      <div>
+        <h1>SSH keys</h1>
+        <p>Keys are tried automatically; the one that works is remembered for each host.</p>
+      </div>
+    </header>
+
+    <div class="cols">
+      <section>
+        <div class="section-head"><h2>Your keys</h2><span id="keyCount"></span></div>
+        <div id="keyList"></div>
+      </section>
+
+      <section class="card">
+        <div class="seg">
+          <button type="button" data-mode="generate" class="on">Generate</button>
+          <button type="button" data-mode="import">Import</button>
+        </div>
+
+        <form id="genForm">
+          <label class="field">Name <input id="genName" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+          <div class="radios">
+            <label><input type="radio" name="genType" value="ed25519" checked> Ed25519 <small>recommended</small></label>
+            <label><input type="radio" name="genType" value="rsa"> RSA 3072</label>
+          </div>
+          <label class="field">Comment <input id="genComment" value="quest3" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+          <button class="primary" type="submit">Generate key</button>
+        </form>
+
+        <form id="impForm" hidden>
+          <label class="field">Name <input id="impName" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+          <textarea id="impText" spellcheck="false" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;…&#10;-----END OPENSSH PRIVATE KEY-----"></textarea>
+          <button type="button" id="impPaste">📋 Paste from clipboard</button>
+          <button class="primary" type="submit">Import key</button>
+          <div class="note">Keys with a passphrase work too — enter the passphrase in the password field when connecting.</div>
+        </form>
+
+        <div id="keyMsg"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div id="termView">
+  <div id="bar">
+    <button data-seq="\x1b">Esc</button>
+    <button data-seq="\t">Tab</button>
+    <button id="ctrl">Ctrl</button>
+    <button data-seq="\x03">^C</button>
+    <button data-seq="\x1b[A">↑</button>
+    <button data-seq="\x1b[B">↓</button>
+    <button data-seq="\x1b[D">←</button>
+    <button data-seq="\x1b[C">→</button>
+    <span class="spacer"></span>
+    <button id="copy" title="Copy selection (Ctrl+Shift+C)">Copy</button>
+    <button id="paste" title="Paste (Ctrl+Shift+V)">Paste</button>
+    <button id="histBtn" title="Command history (Ctrl+Shift+H)">History</button>
+    <span id="size" title="Terminal size (columns×rows)"></span>
+    <button id="fontDown" title="Smaller font (Ctrl+−)">A−</button>
+    <button id="fontUp" title="Bigger font (Ctrl+=)">A+</button>
+  </div>
+  <div id="terms"></div>
+</div>
+
+<div id="history">
+  <div class="box">
+    <div class="head">
+      <input id="histFilter" placeholder="Search history…" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button id="histClose">Close</button>
+    </div>
+    <ul id="histList"></ul>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="xterm.js"></script>
+<script src="addon-fit.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const STORE = 'vrssh.hosts', FONT = 'vrssh.font', THEME = 'vrssh.theme', HISTORY = 'vrssh.history', DEFAULT_FONT = 16;
+const TERM_THEMES = {
+  dark: {
+    background: '#1e1e2e', foreground: '#cdd6f4', cursor: '#f5e0dc', cursorAccent: '#1e1e2e', selectionBackground: '#585b7080',
+    black: '#45475a', red: '#f38ba8', green: '#a6e3a1', yellow: '#f9e2af', blue: '#89b4fa', magenta: '#f5c2e7', cyan: '#94e2d5', white: '#bac2de',
+    brightBlack: '#585b70', brightRed: '#f38ba8', brightGreen: '#a6e3a1', brightYellow: '#f9e2af', brightBlue: '#89b4fa',
+    brightMagenta: '#f5c2e7', brightCyan: '#94e2d5', brightWhite: '#a6adc8',
+  },
+  light: {
+    background: '#eff1f5', foreground: '#4c4f69', cursor: '#dc8a78', cursorAccent: '#eff1f5', selectionBackground: '#acb0be80',
+    black: '#5c5f77', red: '#d20f39', green: '#40a02b', yellow: '#df8e1d', blue: '#1e66f5', magenta: '#ea76cb', cyan: '#179299', white: '#acb0be',
+    brightBlack: '#6c6f85', brightRed: '#d20f39', brightGreen: '#40a02b', brightYellow: '#df8e1d', brightBlue: '#1e66f5',
+    brightMagenta: '#ea76cb', brightCyan: '#179299', brightWhite: '#bcc0cc',
+  },
+};
+const GRAY = s => `\x1b[90m${s}\x1b[0m`, YELLOW = s => `\x1b[33m${s}\x1b[0m`, GREEN = s => `\x1b[32m${s}\x1b[0m`;
+
+function load(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
+}
+function save(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
+
+// ---------- tabs ----------
+const tabs = new Map();   // id -> tab
+let nextId = 1, active = null, fontSize = load(FONT, DEFAULT_FONT), ctrl = false, theme = 'dark';
+
+function createTab(conn) {
+  const id = nextId++;
+  const el = document.createElement('div');
+  el.className = 'term';
+  $('terms').append(el);
+
+  const term = new Terminal({
+    fontFamily: 'ui-monospace, "Droid Sans Mono", monospace',
+    fontSize, cursorBlink: true, scrollback: 5000,
+    theme: TERM_THEMES[theme],
+  });
+  const fit = new FitAddon.FitAddon();
+  term.loadAddon(fit);
+  term.open(el);
+  term.attachCustomKeyEventHandler(hotkeys);
+
+  const btn = document.createElement('div');
+  btn.className = 'tab';
+  btn.innerHTML = '<span class="dot"></span><span class="name"></span><button class="x" title="Close (Ctrl+Shift+W)">✕</button>';
+  btn.querySelector('.name').textContent = conn.host;
+  btn.title = `${conn.user}@${conn.host}:${conn.port}`;
+  btn.onclick = () => activate(id);
+  btn.querySelector('.x').onclick = e => { e.stopPropagation(); closeTab(id); };
+  $('tabs').insertBefore(btn, $('newTab'));
+
+  const tab = { id, ...conn, term, fit, el, btn, state: 'connecting', everConnected: false, attempt: 0, timer: null, cmdStart: null, pendingCmd: null };
+  term.onData(data => onInput(tab, data));
+  tabs.set(id, tab);
+  return tab;
+}
+
+function setState(tab, state) {
+  tab.state = state;
+  tab.btn.querySelector('.dot').className = 'dot ' + state;
+}
+
+function activate(id) {
+  active = id;
+  const tab = tabs.get(id), keys = id === 'keys';
+  $('login').style.display = !tab && !keys ? 'flex' : 'none';
+  $('keysView').style.display = keys ? 'flex' : 'none';
+  $('termView').style.display = tab ? 'flex' : 'none';
+  $('newTab').classList.toggle('active', !tab && !keys);
+  $('keysTab').classList.toggle('active', keys);
+  for (const t of tabs.values()) {
+    t.el.classList.toggle('active', t === tab);
+    t.btn.classList.toggle('active', t === tab);
+  }
+  if (tab) {
+    requestAnimationFrame(() => { refit(); tab.term.focus(); });
+  } else if (keys) {
+    renderKeyList();
+  } else {
+    renderSaved();
+    renderKeys();
+  }
+}
+
+function closeTab(id) {
+  const tab = tabs.get(id);
+  if (!tab) return;
+  clearTimeout(tab.timer);
+  Android.disconnect(id);
+  tab.term.dispose();
+  tab.el.remove();
+  tab.btn.remove();
+  const order = [...tabs.keys()], i = order.indexOf(id);
+  tabs.delete(id);
+  if (active === id) activate(order[i + 1] ?? order[i - 1] ?? null);
+}
+
+function cycleTab(step) {
+  const order = [...tabs.keys(), null, 'keys'];
+  const i = order.indexOf(active);
+  activate(order[(i + step + order.length) % order.length]);
+}
+
+function hotkeys(e) {
+  if (e.type !== 'keydown' || !e.ctrlKey) return true;
+  const k = e.key.toLowerCase();
+  if (e.shiftKey && k === 't') activate(null);
+  else if (e.shiftKey && k === 'w') closeTab(active);
+  else if (k === 'tab') cycleTab(e.shiftKey ? -1 : 1);
+  else if (e.shiftKey && k === 'c') copySelection();
+  else if (e.shiftKey && k === 'v') pasteClipboard();
+  else if (e.shiftKey && k === 'h') openHistory();
+  else if (k === '=' || k === '+') setFont(fontSize + 1);
+  else if (k === '-' || k === '_') setFont(fontSize - 1);
+  else if (k === '0') setFont(DEFAULT_FONT);
+  else return true;
+  e.preventDefault();
+  return false;
+}
+document.addEventListener('keydown', e => { if (active === null) hotkeys(e); });
+
+// ---------- connection lifecycle ----------
+function connect(tab) {
+  clearTimeout(tab.timer);
+  setState(tab, tab.everConnected ? 'reconnecting' : 'connecting');
+  Android.connect(tab.id, tab.host, tab.port, tab.user, tab.password,
+                  tab.term.cols, tab.term.rows, tab.tmux, tab.key || '', !!tab.onlyKey);
+}
+
+function scheduleReconnect(tab, reason) {
+  setState(tab, 'reconnecting');
+  const delay = Math.min(30, 2 ** tab.attempt);
+  tab.attempt++;
+  tab.term.writeln('\r\n' + YELLOW(`⟳ ${reason}. Reconnecting in ${delay}s… (Enter — now)`));
+  tab.timer = setTimeout(() => connect(tab), delay * 1000);
+}
+
+function onInput(tab, data) {
+  if (tab.state === 'connected') {
+    trackCommand(tab, data);
+    send(tab, data);
+  } else if (data === '\r' && (tab.state === 'reconnecting' || tab.state === 'exited')) {
+    connect(tab);
+  }
+}
+
+function send(tab, data) {
+  if (ctrl && data.length === 1) {
+    const c = data.toUpperCase().charCodeAt(0);
+    if (c >= 64 && c <= 95) data = String.fromCharCode(c - 64);
+    setCtrl(false);
+  }
+  Android.write(tab.id, data);
+}
+
+window.onSshData = (id, b64) => {
+  const tab = tabs.get(id);
+  if (!tab) return;
+  const bin = atob(b64), bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  tab.term.write(bytes, () => checkPendingCmd(tab));
+};
+
+window.onSshStatus = (id, type, message) => {
+  const tab = tabs.get(id);
+  if (!tab) return;
+  switch (type) {
+    case 'info':
+      tab.term.writeln(GRAY(message));
+      break;
+    case 'connected':
+      if (message) tab.key = message;   // the key the server accepted; reconnects try it first
+      if (tab.everConnected) tab.term.writeln(GREEN('✓ Reconnected'));
+      else rememberHost(tab);
+      tab.everConnected = true;
+      tab.attempt = 0;
+      setState(tab, 'connected');
+      if (tab.id === active) refit();
+      break;
+    case 'error':
+      if (tab.everConnected) {
+        scheduleReconnect(tab, message);
+      } else {
+        // First attempt failed (wrong password, bad host…): back to the form.
+        const { host, port, user, tmux } = tab;
+        closeTab(id);
+        activate(null);
+        fillForm({ host, port, user, tmux });
+        showMessage(message, true);
+      }
+      break;
+    case 'dropped':
+      scheduleReconnect(tab, message);
+      break;
+    case 'exited':
+      setState(tab, 'exited');
+      tab.term.writeln('\r\n' + GRAY(`Session ended (exit code ${message}). Enter — reconnect, ✕ — close tab.`));
+      break;
+  }
+};
+
+// Network came back: don't wait for the backoff timer.
+window.addEventListener('online', () => {
+  for (const tab of tabs.values()) if (tab.state === 'reconnecting') connect(tab);
+});
+
+// ---------- terminal sizing & toolbar ----------
+function refit() {
+  const tab = tabs.get(active);
+  if (!tab) return;
+  tab.fit.fit();
+  Android.resize(tab.id, tab.term.cols, tab.term.rows);
+  $('size').textContent = `${tab.term.cols}×${tab.term.rows}`;
+}
+new ResizeObserver(refit).observe($('terms'));
+
+function setCtrl(on) { ctrl = on; $('ctrl').classList.toggle('on', on); }
+
+document.querySelectorAll('#bar [data-seq]').forEach(b => {
+  const seq = JSON.parse('"' + b.dataset.seq.replace(/\\x/g, '\\u00') + '"');
+  b.addEventListener('click', () => {
+    const tab = tabs.get(active);
+    if (tab) { onInput(tab, seq); tab.term.focus(); }
+  });
+});
+$('ctrl').onclick = () => { setCtrl(!ctrl); tabs.get(active)?.term.focus(); };
+$('fontUp').onclick = () => setFont(fontSize + 1);
+$('fontDown').onclick = () => setFont(fontSize - 1);
+$('newTab').onclick = () => activate(null);
+
+function setFont(size) {
+  fontSize = Math.max(8, Math.min(40, size));
+  save(FONT, fontSize);
+  for (const t of tabs.values()) t.term.options.fontSize = fontSize;
+  refit();
+}
+
+// ---------- copy / paste ----------
+let toastTimer;
+function toast(text) {
+  $('toast').textContent = text;
+  $('toast').classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $('toast').classList.remove('show'), 1500);
+}
+
+function copySelection() {
+  const tab = tabs.get(active);
+  const text = tab?.term.getSelection();
+  if (!text) return toast('Select text first');
+  Android.copy(text);
+  tab.term.clearSelection();
+  toast(`Copied ${text.length} chars`);
+  tab.term.focus();
+}
+
+function pasteClipboard() {
+  const tab = tabs.get(active);
+  if (!tab) return;
+  const text = Android.paste();
+  if (!text) return toast('Clipboard is empty');
+  tab.term.paste(text);   // goes through onData, with bracketed paste if the app asked for it
+  tab.term.focus();
+}
+
+$('copy').onclick = copySelection;
+$('paste').onclick = pasteClipboard;
+
+// ---------- command history ----------
+// A command is read from the screen after Enter, once the cursor has left the input line
+// (so the remote echo has fully arrived), starting where the cursor was on the first keystroke.
+// That picks up tab-completions and shell-history recalls, while passwords (not echoed)
+// never reach the history.
+function trackCommand(tab, data) {
+  const b = tab.term.buffer.active;
+  if (b.type === 'alternate') { tab.cmdStart = null; return; }   // vim, htop, less…
+  if (data === '\r') {
+    tab.pendingCmd = tab.cmdStart;
+    tab.cmdStart = null;
+  } else if (data === '\x03' || data === '\x04') {
+    tab.cmdStart = null;
+  } else if (!tab.cmdStart) {
+    tab.cmdStart = { y: b.baseY + b.cursorY, x: b.cursorX };
+  }
+}
+
+function checkPendingCmd(tab) {
+  const b = tab.term.buffer.active, start = tab.pendingCmd;
+  if (!start) return;
+  if (b.type === 'alternate') { tab.pendingCmd = null; return; }
+  const row = b.baseY + b.cursorY;
+  if (row > start.y && !b.getLine(row)?.isWrapped) {
+    tab.pendingCmd = null;
+    addHistory(readCommand(tab, start));
+  }
+}
+
+function readCommand(tab, { y, x }) {
+  const b = tab.term.buffer.active;
+  let text = b.getLine(y)?.translateToString(true).slice(x) ?? '';
+  for (let i = y + 1; b.getLine(i)?.isWrapped; i++) text += b.getLine(i).translateToString(true);
+  return text.trim();
+}
+
+function addHistory(cmd) {
+  if (!cmd) return;
+  const list = load(HISTORY, []).filter(c => c !== cmd);
+  save(HISTORY, [cmd, ...list].slice(0, 500));
+}
+
+function openHistory() {
+  if (!tabs.get(active)) return;
+  $('history').classList.add('open');
+  $('histFilter').value = '';
+  renderHistory();
+  $('histFilter').focus();
+}
+
+function closeHistory() {
+  $('history').classList.remove('open');
+  tabs.get(active)?.term.focus();
+}
+
+function renderHistory() {
+  const q = $('histFilter').value.toLowerCase();
+  const all = load(HISTORY, []);
+  const items = all.filter(c => c.toLowerCase().includes(q)).slice(0, 100);
+  const list = $('histList');
+  list.innerHTML = '';
+  if (!items.length) {
+    list.innerHTML = `<li class="empty">${all.length ? 'Nothing found' : 'No commands yet'}</li>`;
+    return;
+  }
+  for (const cmd of items) {
+    const li = document.createElement('li');
+    const insert = document.createElement('button');
+    insert.textContent = cmd;
+    insert.title = 'Insert into terminal';
+    insert.onclick = () => useHistory(cmd, false);
+    const run = document.createElement('button');
+    run.textContent = '↵';
+    run.title = 'Run now';
+    run.onclick = () => useHistory(cmd, true);
+    const del = document.createElement('button');
+    del.textContent = '✕';
+    del.title = 'Remove from history';
+    del.onclick = () => { save(HISTORY, load(HISTORY, []).filter(c => c !== cmd)); renderHistory(); };
+    li.append(insert, run, del);
+    list.append(li);
+  }
+}
+
+function useHistory(cmd, run) {
+  const tab = tabs.get(active);
+  closeHistory();
+  if (!tab || tab.state !== 'connected') return;
+  onInput(tab, cmd);
+  if (run) onInput(tab, '\r');
+}
+
+$('histBtn').onclick = openHistory;
+$('histClose').onclick = closeHistory;
+$('histFilter').oninput = renderHistory;
+$('histFilter').onkeydown = e => {
+  if (e.key === 'Escape') closeHistory();
+  else if (e.key === 'Enter') { const first = load(HISTORY, []).find(c => c.toLowerCase().includes($('histFilter').value.toLowerCase())); if (first) useHistory(first, false); }
+};
+$('history').onclick = e => { if (e.target === $('history')) closeHistory(); };
+
+// ---------- keys page ----------
+let keyMode = 'generate', freshKey = null;
+
+function keyList() {
+  try { return JSON.parse(Keys.list()); } catch { return []; }
+}
+
+function suggestKeyName() {
+  const names = new Set(keyList().map(k => k.name));
+  let name = 'id_quest', n = 2;
+  while (names.has(name)) name = `id_quest${n++}`;
+  return name;
+}
+
+function keyMessage(text, isError) {
+  $('keyMsg').textContent = text || '';
+  $('keyMsg').className = isError ? 'error' : '';
+}
+
+function setKeyMode(mode) {
+  keyMode = mode;
+  document.querySelectorAll('.seg button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  $('genForm').hidden = mode !== 'generate';
+  $('impForm').hidden = mode !== 'import';
+  keyMessage('');
+}
+
+function renderKeyList() {
+  const keys = keyList();
+  const list = $('keyList');
+  list.innerHTML = '';
+  $('keyCount').textContent = keys.length || '';
+  if (!$('genName').value) $('genName').value = suggestKeyName();
+  if (!$('impName').value) $('impName').value = suggestKeyName();
+  if (!keys.length) {
+    list.innerHTML = '<div class="empty-hosts"><b>No keys yet</b>Generate a new key or import one from the clipboard.</div>';
+    return;
+  }
+  const liveTabs = [...tabs.values()].filter(t => t.state === 'connected');
+  for (const k of keys) {
+    const el = document.createElement('div');
+    el.className = 'key' + (k.name === freshKey ? ' fresh' : '');
+    const top = document.createElement('div');
+    top.className = 'top';
+    const name = document.createElement('span');
+    name.className = 'kname';
+    name.textContent = k.name;
+    top.append(name);
+    const badge = (text, cls = 'badge') => { const b = document.createElement('span'); b.className = cls; b.textContent = text; top.append(b); };
+    if (k.type) badge(k.type.replace(/^ssh-/, ''));
+    if (k.encrypted) badge('passphrase');
+    if (k.comment) badge(k.comment);
+    el.append(top);
+
+    if (k.error) {
+      const err = document.createElement('div');
+      err.className = 'err';
+      err.textContent = k.error;
+      el.append(err);
+    }
+    if (k.fingerprint) {
+      const fp = document.createElement('div');
+      fp.className = 'fp';
+      fp.textContent = k.fingerprint;
+      el.append(fp);
+    }
+
+    const acts = document.createElement('div');
+    acts.className = 'acts';
+    const button = (text, title, onclick, cls = '') => {
+      const b = document.createElement('button');
+      b.textContent = text; b.title = title; b.className = cls; b.onclick = onclick;
+      acts.append(b);
+      return b;
+    };
+    if (k.publicKey) {
+      button('Copy public key', 'Copy to clipboard', () => { Android.copy(k.publicKey); toast('Public key copied'); });
+      for (const t of liveTabs) {
+        button(`Add to ${t.host}`, `Append to ~/.ssh/authorized_keys on ${t.user}@${t.host}`, () => installKey(k, t));
+      }
+    }
+    const del = button('Delete', 'Delete this key', () => {
+      if (!del.classList.contains('armed')) {
+        del.classList.add('armed');
+        del.textContent = 'Tap again to delete';
+        setTimeout(() => { del.classList.remove('armed'); del.textContent = 'Delete'; }, 3000);
+        return;
+      }
+      const r = JSON.parse(Keys.delete(k.name));
+      if (!r.ok) return keyMessage(r.error, true);
+      keyMessage(`Key ${k.name} deleted`);
+      renderKeyList();
+    }, 'danger');
+    el.append(acts);
+    list.append(el);
+  }
+}
+
+// Appends the public key on the server through an open shell (skips it if already present).
+function installKey(k, tab) {
+  if (tab.term.buffer.active.type === 'alternate') return toast(`Exit the full-screen app in ${tab.host} first`);
+  const key = k.publicKey.replace(/'/g, '');
+  const cmd = ` mkdir -p ~/.ssh && chmod 700 ~/.ssh && touch ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys && ` +
+    `(grep -qxF '${key}' ~/.ssh/authorized_keys && echo 'Key already installed' || ` +
+    `(echo '${key}' >> ~/.ssh/authorized_keys && echo 'Key installed: ${k.name}'))`;
+  Android.write(tab.id, '\x15' + cmd + '\r');   // Ctrl+U clears any half-typed input first
+  activate(tab.id);
+}
+
+function afterKeySaved(r, verb) {
+  if (!r.ok) return keyMessage(r.error, true);
+  freshKey = r.key.name;
+  keyMessage(`Key ${r.key.name} ${verb}. Copy the public key or add it to a server.`);
+  $('genName').value = '';
+  $('impName').value = '';
+  $('impText').value = '';
+  renderKeyList();
+}
+
+document.querySelectorAll('.seg button').forEach(b => b.onclick = () => setKeyMode(b.dataset.mode));
+$('keysTab').onclick = () => activate('keys');
+$('keysBack').onclick = () => activate(null);
+
+$('genForm').onsubmit = e => {
+  e.preventDefault();
+  const type = document.querySelector('input[name=genType]:checked').value;
+  keyMessage('Generating…');
+  setTimeout(() => afterKeySaved(JSON.parse(Keys.generate($('genName').value, type, $('genComment').value)), 'generated'), 30);
+};
+
+$('impPaste').onclick = () => {
+  const text = Android.paste();
+  if (!text) return keyMessage('Clipboard is empty', true);
+  $('impText').value = text;
+  keyMessage('');
+};
+
+$('impForm').onsubmit = e => {
+  e.preventDefault();
+  if (!$('impText').value.trim()) return keyMessage('Paste a private key first', true);
+  afterKeySaved(JSON.parse(Keys.importKey($('impName').value, $('impText').value)), 'imported');
+};
+
+// ---------- theme ----------
+function applyTheme(name) {
+  theme = name === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = theme;
+  $('themeBtn').textContent = theme === 'light' ? '☾' : '☀';
+  $('themeBtn').title = theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme';
+  for (const t of tabs.values()) t.term.options.theme = TERM_THEMES[theme];
+  Android.setBackground(getComputedStyle(document.body).backgroundColor);
+  save(THEME, theme);
+}
+$('themeBtn').onclick = () => applyTheme(theme === 'light' ? 'dark' : 'light');
+applyTheme(load(THEME, 'dark'));
+
+// ---------- start screen ----------
+function showMessage(text, isError) {
+  $('msg').textContent = text || '';
+  $('msg').className = isError ? 'error' : '';
+}
+
+function formatAddress(h) {
+  return `${h.user}@${h.host}${h.port != 22 ? ':' + h.port : ''}`;
+}
+
+function parseAddress(text) {
+  const m = text.trim().match(/^([^@\s]+)@(\[[^\]]+\]|[^:\s]+)(?::(\d+))?$/);
+  if (!m) return null;
+  return { user: m[1], host: m[2].replace(/^\[|\]$/g, ''), port: +(m[3] || 22) };
+}
+
+function fillForm(h) {
+  $('address').value = formatAddress(h);
+  $('tmux').checked = h.tmux !== false;
+  renderKeySelect(h.onlyKey ? h.key : '');
+  $('password').value = '';
+  $('password').focus();
+}
+
+function sameHost(a, b) { return a.host === b.host && a.port === b.port && a.user === b.user; }
+
+function ago(ts) {
+  if (!ts) return '';
+  const min = Math.round((Date.now() - ts) / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min} min ago`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `${h} h ago`;
+  return `${Math.round(h / 24)} d ago`;
+}
+
+function avatarColor(name) {
+  let hash = 0;
+  for (const ch of name) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
+  const hue = Math.abs(hash) % 360;
+  return `linear-gradient(135deg, hsl(${hue} 70% 75%), hsl(${(hue + 40) % 360} 70% 65%))`;
+}
+
+function renderSaved() {
+  const hosts = load(STORE, []);
+  const grid = $('saved');
+  grid.innerHTML = '';
+  $('hostCount').textContent = hosts.length || '';
+  if (!hosts.length) {
+    grid.innerHTML = '<div class="empty-hosts"><b>No saved hosts yet</b>Connect once — the host will appear here for one-click access.</div>';
+    return;
+  }
+  for (const h of hosts) {
+    const open = [...tabs.values()].filter(t => sameHost(t, h)).length;
+    const card = document.createElement('div');
+    card.className = 'host';
+    card.title = 'Connect';
+    card.innerHTML = `
+      <div class="avatar"></div>
+      <div class="info"><div class="name"></div><div class="meta"></div></div>
+      <div class="actions">
+        <button class="edit" title="Connect with password">✎</button>
+        <button class="del" title="Remove">✕</button>
+      </div>`;
+    const avatar = card.querySelector('.avatar');
+    avatar.textContent = h.host.replace(/^\d.*$/, '#')[0];
+    avatar.style.background = avatarColor(h.host);
+    card.querySelector('.name').textContent = h.host;
+    const meta = card.querySelector('.meta');
+    const add = (text, cls = '') => { const b = document.createElement('span'); b.className = cls; b.textContent = text; meta.append(b); };
+    add(h.user + (h.port != 22 ? ` · :${h.port}` : ''));
+    if (h.tmux !== false) add('tmux', 'badge');
+    if (h.key) add('🔑 ' + h.key, 'badge');
+    if (open) add(open > 1 ? `${open} open` : 'open', 'badge live');
+    else if (h.lastUsed) add(ago(h.lastUsed));
+
+    card.onclick = () => openConnection(h, '');
+    card.querySelector('.edit').onclick = e => { e.stopPropagation(); fillForm(h); };
+    card.querySelector('.del').onclick = e => {
+      e.stopPropagation();
+      save(STORE, load(STORE, []).filter(x => !sameHost(x, h)));
+      renderSaved();
+    };
+    grid.append(card);
+  }
+}
+
+function renderKeySelect(selected = $('keySel').value) {
+  const sel = $('keySel');
+  sel.innerHTML = '';
+  sel.append(new Option('Key: Auto (try all, remember what works)', ''));
+  for (const k of keyList()) sel.append(new Option(`Key: ${k.name}${k.type ? '  ·  ' + k.type.replace(/^ssh-/, '') : ''}`, k.name));
+  sel.value = [...sel.options].some(o => o.value === selected) ? selected : '';
+}
+
+function renderKeys() {
+  renderKeySelect();
+  let info;
+  try { info = JSON.parse(Android.keyInfo()); } catch { info = { keys: [], dir: '' }; }
+  const el = $('keys');
+  el.innerHTML = '';
+  if (info.keys.length) {
+    el.append(`🔑 ${info.keys.length === 1 ? 'Key' : 'Keys'} loaded:`);
+    for (const k of info.keys) { const c = document.createElement('code'); c.textContent = k; el.append(c); }
+  } else {
+    el.append('🔑 No SSH keys yet.');
+  }
+  const manage = document.createElement('button');
+  manage.className = 'link';
+  manage.textContent = 'Manage keys →';
+  manage.onclick = () => activate('keys');
+  el.append(manage);
+}
+
+// Hosts are remembered only after a successful connection.
+function rememberHost(h) {
+  const entry = { host: h.host, port: h.port, user: h.user, tmux: h.tmux !== false, lastUsed: Date.now(),
+                  key: h.key || '', onlyKey: !!h.onlyKey };
+  save(STORE, [entry, ...load(STORE, []).filter(x => !sameHost(x, entry))].slice(0, 20));
+}
+
+function openConnection(h, password) {
+  showMessage('');
+  const tab = createTab({ host: h.host, port: h.port, user: h.user, tmux: h.tmux !== false, password,
+                         key: h.key || '', onlyKey: !!h.onlyKey });
+  activate(tab.id);
+  requestAnimationFrame(() => { tab.fit.fit(); connect(tab); });
+}
+
+$('form').onsubmit = e => {
+  e.preventDefault();
+  const h = parseAddress($('address').value);
+  if (!h) return showMessage('Use the format user@host or user@host:port', true);
+  const password = $('password').value;
+  $('password').value = '';
+  const key = $('keySel').value;
+  openConnection({ ...h, tmux: $('tmux').checked, key, onlyKey: !!key }, password);
+};
+
+activate(null);
+</script>
+</body>
+</html>
