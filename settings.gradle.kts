@@ -11,5 +11,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "VrSsh"
+rootProject.name = "OrbitSsh"
 include(":app")

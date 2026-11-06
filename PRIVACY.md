@@ -1,8 +1,8 @@
-# Privacy Policy — VR SSH
+# Privacy Policy — Orbit SSH
 
 _Effective date: November 6, 2026_
 
-VR SSH ("the app") is an open-source SSH client for Meta Quest headsets, published by Sequre42 (<https://github.com/sequring>). This policy explains what data the app handles and where it goes.
+Orbit SSH ("the app") is an open-source SSH client for Meta Quest headsets, published by Sequre42 (<https://github.com/sequring>). This policy explains what data the app handles and where it goes.
 
 **In short: the app does not collect, transmit, sell or share any personal data with us or with any third party. Everything stays on your headset, except the SSH traffic you send to servers you choose.**
 

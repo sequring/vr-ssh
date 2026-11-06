@@ -1,4 +1,4 @@
-# VR SSH
+# Orbit SSH
 
 A full SSH terminal for Meta Quest headsets. Runs as a native panel app in Horizon OS and connects to your servers directly from the headset — no computer in the middle.
 
@@ -25,9 +25,9 @@ A full SSH terminal for Meta Quest headsets. Runs as a native panel app in Horiz
 2. Download the APK from [Releases](https://github.com/sequring/vr-ssh/releases).
 3. Install it with [SideQuest](https://sidequestvr.com/), Meta Quest Developer Hub, or adb:
    ```bash
-   adb install vr-ssh-1.0.0.apk
+   adb install orbit-ssh-1.0.1.apk
    ```
-4. In the headset: **Library → Unknown Sources → VR SSH**.
+4. In the headset: **Library → Unknown Sources → Orbit SSH**.
 
 A Bluetooth keyboard paired with the headset makes it a comfortable workstation.
 

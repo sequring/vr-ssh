@@ -1,4 +1,4 @@
-# Meta Horizon Store listing — VR SSH
+# Meta Horizon Store listing — Orbit SSH
 
 Copy-paste material for the Developer Dashboard. Character counts are given so you can check them against the limits the dashboard shows.
 
@@ -6,7 +6,7 @@ Copy-paste material for the Developer Dashboard. Character counts are given so y
 
 | Field | Value |
 |---|---|
-| App name | VR SSH |
+| App name | Orbit SSH |
 | Package | `io.github.sequring.vrssh` |
 | Category | Productivity (secondary: Utilities) |
 | Price | Free |
@@ -28,10 +28,10 @@ Your servers, in your space. A real SSH terminal.
 A full SSH terminal for your headset. Open tabs to several servers, reconnect automatically, keep sessions alive with tmux, and manage SSH keys — all directly from Quest, no computer needed.
 ```
 
-## Long description (~1,730 chars)
+## Long description (~1,740 chars)
 
 ```
-VR SSH turns your headset into a workstation for your servers. Pair a Bluetooth keyboard, place a giant terminal anywhere around you, and work over SSH directly from the headset — no PC, no streaming, no middleman.
+Orbit SSH turns your headset into a workstation for your servers. Pair a Bluetooth keyboard, place a giant terminal anywhere around you, and work over SSH directly from the headset — no PC, no streaming, no middleman.
 
 A REAL TERMINAL
 Full xterm-compatible emulation with 256 colors, Unicode and mouse support. vim, htop, tmux, less and git all work exactly as they do on your desktop. Adjust the font size to fit as many columns as you like.
@@ -53,9 +53,15 @@ PRIVATE BY DESIGN
 No accounts, no analytics, no ads, no tracking. The app talks only to the servers you connect to. Host keys are pinned on first use to protect you from impersonation, passwords are never stored, and command history skips anything typed at hidden password prompts.
 
 OPEN SOURCE
-VR SSH is free and open source under the MIT license. Read the code, report issues or contribute at github.com/sequring/vr-ssh.
+Orbit SSH is free and open source under the MIT license. Read the code, report issues or contribute at github.com/sequring/vr-ssh.
 
-Tip: a Bluetooth keyboard paired with your headset makes VR SSH a comfortable place to work for hours.
+Tip: a Bluetooth keyboard paired with your headset makes Orbit SSH a comfortable place to work for hours.
+```
+
+## What's new — 1.0.1
+
+```
+Renamed to Orbit SSH. Your saved hosts, keys and history are kept.
 ```
 
 ## What's new — 1.0.0
@@ -87,7 +93,16 @@ All covers carry the exact app title and nothing else, as the guidelines require
 
 ## Screenshots
 
-The store needs **at least 5** unique screenshots at **2560×1440** of real in-app content, without titles or marketing text. The images in `docs/screenshots/` (1750×1100) are for the README and do not meet this; they have to be captured from the headset at 16:9.
+Ready in `docs/store/screenshots/`: six 2560×1440 PNGs captured from the app running on a Quest 3, with real SSH sessions to a demo machine and no marketing text.
+
+| File | Shows |
+|---|---|
+| `01-hosts.png` | Saved hosts and new connection form |
+| `02-vim.png` | vim with syntax highlighting |
+| `03-tabs-git.png` | Tabs, git log graph, a live service answering curl |
+| `04-keys.png` | SSH key management |
+| `05-history.png` | Searchable command history |
+| `06-light.png` | Light theme |
 
 ---
 

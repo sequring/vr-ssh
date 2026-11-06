@@ -1,6 +1,6 @@
 # Third-party software
 
-VR SSH bundles the following open-source components:
+Orbit SSH bundles the following open-source components:
 
 | Component | License | Source |
 |---|---|---|

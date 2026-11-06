@@ -79,7 +79,7 @@
   <div class="vignette"></div>
   <div class="title">
     <div class="mark"><svg viewBox="0 0 108 108"><path d="M30,32 L50,52 L30,72" fill="none" stroke="#11111b" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><path d="M58,73 L80,73" stroke="#11111b" stroke-width="9" stroke-linecap="round"/></svg></div>
-    <div class="name">VR SSH</div>
+    <div class="name">Orbit SSH</div>
   </div>
   <div class="iconmark"><svg viewBox="0 0 108 108"><path d="M30,32 L50,52 L30,72" fill="none" stroke="#11111b" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/><path d="M58,73 L80,73" stroke="#11111b" stroke-width="9" stroke-linecap="round"/></svg></div>
 
@@ -95,7 +95,7 @@ const u = Math.min(W, H) / (aspect > 2.5 ? 34 : 60);
 root.setProperty('--u', u + 'px');
 root.setProperty('--p', (Math.max(W, H) * 1.1) + 'px');
 // Title size: prominent, but keeps clear of the edges (safe area) on every aspect.
-const t = Math.min(H * (aspect > 2.5 ? 0.30 : 0.16), W * (aspect < 1 ? 0.15 : 0.12));
+const t = Math.min(H * (aspect > 2.5 ? 0.30 : 0.16), W * (aspect < 1 ? 0.115 : 0.11));
 root.setProperty('--t', t + 'px');
 root.setProperty('--ty', (aspect < 1 ? 64 : aspect > 2.5 ? 50 : 58) + '%');
 
